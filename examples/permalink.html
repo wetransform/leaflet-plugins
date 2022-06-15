@@ -27,7 +27,7 @@
 	var layers = L.control.layers({'OSM': osm, 'Hydda': hydda}, {'Pressure': pressure}, {collapsed: false});
 	map.addLayer(osm);
 	map.addControl(layers);
-	map.addControl(new L.Control.Permalink({text: 'Permalink', layers: layers}));
+	map.addControl(new L.Control.Permalink({position:'bottomleft',text: 'Permalink', layers: layers}));
 </script>
 
 </body>

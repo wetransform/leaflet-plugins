@@ -3,10 +3,11 @@ L.Control.Permalink = L.Control.extend({
 
 	options: {
 		position: 'bottomleft',
-		useAnchor: true,
+		useAnchor: false,
 		useLocation: false,
 		useLocalStorage: false,
-		text: 'Permalink'
+		text: 'Permalink',
+		supportAngularHashRouting: true,
 	},
 
 	initialize: function (options) {
@@ -24,8 +25,11 @@ L.Control.Permalink = L.Control.extend({
 		this._container = L.DomUtil.create('div', 'leaflet-control-attribution leaflet-control-permalink');
 		L.DomEvent.disableClickPropagation(this._container);
 		this._map = map;
+
+		// create anchor element pointing to this._href
 		this._href = L.DomUtil.create('a', null, this._container);
 		this._href.innerHTML = this.options.text;
+
 
 		map.on('moveend', this._update_center, this);
 		this.fire('update', {params: this._params});
@@ -44,6 +48,7 @@ L.Control.Permalink = L.Control.extend({
 		return this._container;
 	},
 
+	// call this._update with the zoom and center coordinates values
 	_update_center: function () {
 		if (!this._map) return;
 
@@ -52,18 +57,26 @@ L.Control.Permalink = L.Control.extend({
 	},
 
 	_update_href: function () {
+		// use leaflet.Util func to convert params object to string starting with query symbol (?)
 		var params = L.Util.getParamString(this._params);
 		var sep = '?';
 		if (this.options.useAnchor) sep = '#';
-		var url = this._url_base + sep + params.slice(1);
+		// remove default query symbol and insert the correct one: ? or #
+		var url = this._url_base + sep + params.slice(1); 
+
+		// set this._href to the computed url
 		if (this._href) this._href.setAttribute('href', url);
+		
+		// info: the following was not taken into consideration when adapting the plugin to the angular hash routing
 		if (this.options.useLocation)
 			location.replace('#' + params.slice(1));
 		if (this.options.useLocalStorage)
 			window.localStorage.setItem('paramsTemp', params.slice(1));
+
 		return url;
 	},
 
+	// util func
 	_round_point : function (point) {
 		var bounds = this._map.getBounds(), size = this._map.getSize();
 		var ne = bounds.getNorthEast(), sw = bounds.getSouthWest();
@@ -83,6 +96,7 @@ L.Control.Permalink = L.Control.extend({
 		return point;
 	},
 
+	// update this._params object and call this._update_href
 	_update: function (obj) {
 		for (var i in obj) {
 			if (!obj.hasOwnProperty(i)) continue;
@@ -98,13 +112,17 @@ L.Control.Permalink = L.Control.extend({
 	_set_urlvars: function ()
 	{
 		var p;
+		
+		// info: added Angular hashLocationStrategy support mainly in this if/else block
 		if (this.options.useAnchor) {
-			p = L.UrlUtil.queryParse(L.UrlUtil.hash());
-			this._url_base = window.location.href.split('#')[0];
+			p = L.UrlUtil.queryParse(L.UrlUtil.hash(this.options));
+			this._url_base = this.options.supportAngularHashRouting && L.UrlUtil.hashLocationStrategyUsed() ? L.UrlUtil.angularBaseUrl(true) : window.location.href.split('#')[0];
 		} else {
-			p = L.UrlUtil.queryParse(L.UrlUtil.query());
-			this._url_base = window.location.href.split('#')[0].split('?')[0];
+			p = L.UrlUtil.queryParse(L.UrlUtil.query(this.options));
+			this._url_base = this.options.supportAngularHashRouting && L.UrlUtil.hashLocationStrategyUsed() ? L.UrlUtil.angularBaseUrl(false) : window.location.href.split('#')[0].split('?')[0];
 		}
+
+		// info: the following was not taken into consideration when adapting the plugin to the angular hash routing
 		if (this.options.useLocalStorage) {
 			p = window.localStorage.getItem('paramsTemp');
 			if (p !== null) {
@@ -114,6 +132,7 @@ L.Control.Permalink = L.Control.extend({
 			}
 		}
 		
+		// util func
 		function eq (x, y) {
 			for (var i in x)
 				if (x.hasOwnProperty(i) && x[i] !== y[i])
@@ -121,13 +140,17 @@ L.Control.Permalink = L.Control.extend({
 			return true;
 		}
 			
+		// return if nothing changed
 		if (eq(p, this._params) && eq(this._params, p))
 			return;
+		
+		// update this._href since params changed
 		this._params = p;
 		this._update_href();
 		this.fire('update', {params: this._params});
 	},
 
+	// set map view (UI) according to current params
 	_set_center: function (e)
 	{
 		var params = e.params;
@@ -139,6 +162,8 @@ L.Control.Permalink = L.Control.extend({
 });
 
 L.UrlUtil = {
+	
+	// converts query/hash strings into objects; example: p1=v1&p2=v2 becomes {p1: v1, ...}
 	queryParse: function (s) {
 		var p = {};
 		var sep = '&';
@@ -157,15 +182,31 @@ L.UrlUtil = {
 		return p;
 	},
 
-	query: function () {
-		var href = window.location.href.split('#')[0], idx = href.indexOf('?');
+	// return URL query part w/out the ? symbol
+	query: function (options) {
+		// intercept the func call to support Angular hashLocationStrategy here.
+		if (options && options.supportAngularHashRouting) {
+			if (this.hashLocationStrategyUsed()) return this.angularQuery();
+		} 
+		
+		var href = window.location.href.split('#')[0], 
+		idx = href.indexOf('?');
+		
 		if (idx < 0)
-			return '';
+		return '';
 		return href.slice(idx+1);
 	},
 
-	hash: function () { return window.location.hash.slice(1); },
+	// return URL hash part w/out the # symbol
+	hash: function (options) { 
+		// intercept the func call to support Angular hashLocationStrategy here.
+		if (options && options.supportAngularHashRouting) {
+			if (this.hashLocationStrategyUsed()) return this.angularHash();
+		}
+		return window.location.hash.slice(1); 
+	},
 
+	// this function is not used in this file
 	updateParamString: function (q, obj) {
 		var p = L.UrlUtil.queryParse(q);
 		for (var i in obj) {
@@ -173,5 +214,38 @@ L.UrlUtil = {
 				p[i] = obj[i];
 		}
 		return L.Util.getParamString(p).slice(1);
-	}
+	},
+
+	// input: hc.com/#/map?req=XYZ, output: req=XYZ 
+	angularQuery: function() {
+	
+		let angularHref = window.location.href;
+		let standardHref = angularHref.replace('#/', '');
+
+		let hrefWithoutHash = standardHref.split('#')[0]; 
+
+		let queryIndex = hrefWithoutHash.indexOf('?');
+
+		return queryIndex < 0 ? "" : hrefWithoutHash.slice(queryIndex + 1); 
+
+	},
+
+	// input: hc.com/#/map#param=v1, output: param=v1
+	angularHash: function() {
+		let angularHref = window.location.href;
+		let standardHref = angularHref.replace('#/', '');
+
+		return standardHref.split('#')[1] || ""; 
+	},
+
+	// remove the query and hash parts, and return base url
+	angularBaseUrl: function(useAnchor) {
+		let firstSplit = window.location.href.split("/#/");
+		return [firstSplit[0], firstSplit[1].split('#')[0].split(useAnchor ? '' : '?')].join('/#/');
+	},
+
+	// detect if URL contains /#/, thus angular hash routing
+	hashLocationStrategyUsed: function() {
+		return window.location.href.indexOf('/#/') > -1;
+	},
 };
