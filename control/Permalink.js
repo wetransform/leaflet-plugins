@@ -250,7 +250,7 @@ L.UrlUtil = {
 	// remove the query and hash parts, and return base url
 	angularBaseUrl: function(useAnchor) {
 		let firstSplit = window.location.href.split("/#/");
-		return [firstSplit[0], firstSplit[1].split('#')[0].split(useAnchor ? null : '?')].join('/#/');
+		return [firstSplit[0], firstSplit[1].split('#')[0].split(useAnchor ? null : '?')[0]].join('/#/');
 	},
 
 	// detect if URL contains /#/, thus angular hash routing
