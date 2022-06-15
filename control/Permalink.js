@@ -7,7 +7,7 @@ L.Control.Permalink = L.Control.extend({
 		useLocation: false,
 		useLocalStorage: false,
 		text: 'Permalink',
-		supportAngularHashRouting: true,
+		supportAngularHashRouting: false,
 	},
 
 	initialize: function (options) {
