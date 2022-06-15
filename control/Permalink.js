@@ -31,6 +31,15 @@ L.Control.Permalink = L.Control.extend({
 		this._href.innerHTML = this.options.text;
 
 
+		// Allow user to copy link here
+		var _this = this;
+		this._href.onclick = function(e) {
+			e.preventDefault();
+			prompt("Copy link to clipboard: Ctrl+C, then ENTER", _this._href.getAttribute('href'));
+		}
+
+
+		
 		map.on('moveend', this._update_center, this);
 		this.fire('update', {params: this._params});
 		this._update_center();
