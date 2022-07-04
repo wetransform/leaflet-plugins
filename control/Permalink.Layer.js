@@ -1,6 +1,13 @@
 //#include "Permalink.js
 
-L.Control.Permalink.include({
+
+/**
+ * Brief describtion:
+ * 1. if there is href baselayer, update the map to use it
+ * 2. once a layer is added, set eventhandlers for layer toggles
+ * 3. on layer toggles, update href parameter with current baselayer
+ */
+ L.Control.Permalink.include({
 	/*
 	options: {
 		useMarker: true,
@@ -13,59 +20,86 @@ L.Control.Permalink.include({
 		this.on('add', this._onadd_layer, this);
 	},
 
-	_onadd_layer: function () {
+	// Sets eventhandlers for layer toggles
+	_onadd_layer: function (e) {
 		this._map.on('layeradd', this._update_layer, this);
 		this._map.on('layerremove', this._update_layer, this);
 		this._update_layer();
 	},
 
+	/**
+	 * Updates href baselayer parameter with active baselayer.id
+	 * Called each time a baselayer is added/removed
+	 * @returns void
+	 */
 	_update_layer: function () {
-		if (!this.options.layers) return;
-		var layer = this.options.layers.currentBaseLayer();
-		if (layer)
-			this._update({layer: layer.name});
+		if (!this._map._layers) return;
+
+		let baselayer = this.currentBaseLayer();
+		if (baselayer) {
+			this._update({baselayer: baselayer.id});
+		}
 	},
 
+	/**
+	 * If map has layers, update it with the href layer
+	 * @param {object} e {params: [query params], sourceTarget, target, type}
+	 * @returns void
+	 */
 	_set_layer: function (e) {
+		// e {params: request, etc., sourceTarget, target, type: update}
 		var p = e.params;
-		if (!this.options.layers || !p.layer) return;
-		this.options.layers.chooseBaseLayer(p.layer);
-	}
-});
+		if (!this._map._layers || !p.baselayer) return;
+		this.chooseBaseLayer(p.baselayer);
+	},
 
-L.Control.Layers.include({
-	chooseBaseLayer: function (name) {
-		var layer, obj;
-		for (var i in this._layers) {
-			if (!this._layers.hasOwnProperty(i))
-				continue;
-			obj = this._layers[i];
-			if (!obj.overlay && obj.name === name)
-				layer = obj.layer;
+	/**
+	 * Updates map baselayer according to the parsed href parameter: baselayerId
+	 * @param {string} baselayerId The parsed href baselayer parameter
+	 * @returns void
+	 */
+	chooseBaseLayer: function (baselayerId) {
+		let baselayer;
+		let layers = Object.values(this._map._layers);
+
+		// search for the matching baselayer of the map layers
+		for (let layer of layers) {
+			if (layer.baselayer && layer.id === baselayerId) {
+				baselayer = layer;
+				break;
+			}
 		}
-		if (!layer || this._map.hasLayer(layer))
+
+		// baselayer already selected or does not exist. Nothing to update!
+		if (this._map.hasLayer(baselayer)) {
 			return;
-
-		for (var j in this._layers) {
-			if (!this._layers.hasOwnProperty(j))
-				continue;
-			obj = this._layers[j];
-			if (!obj.overlay && this._map.hasLayer(obj.layer))
-				this._map.removeLayer(obj.layer);
 		}
-		this._map.addLayer(layer);
+
+		if (!baselayer) {
+			return;
+		}
+
+
+		// update map baselayer and remove current one
+		for (let layer of layers) {
+			if (layer.baselayer && this._map.hasLayer(layer)) {
+				this._map.removeLayer(layer);
+			}
+		}
+
+		this._map.addLayer(baselayer);
 		this._update();
 	},
 
+	/**
+	 * Searches the map layers for the currently activated baselayer
+	 * @returns currentBaselayer
+	 */
 	currentBaseLayer: function () {
-		for (var i in this._layers) {
-			if (!this._layers.hasOwnProperty(i))
-				continue;
-			var obj = this._layers[i];
-			if (obj.overlay) continue;
-			if (!obj.overlay && this._map.hasLayer(obj.layer))
-				return obj;
+		for (let layer of Object.values(this._map._layers)) {
+			if (layer.baselayer && this._map.hasLayer(layer)) return layer;
 		}
+
+		return null;
 	}
 });
-
