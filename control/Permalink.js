@@ -118,6 +118,7 @@ L.Control.Permalink = L.Control.extend({
 		this._update_href();
 	},
 
+	// is called at start and fires the update event to reflect the URL params on the UI
 	_set_urlvars: function ()
 	{
 		var p;
