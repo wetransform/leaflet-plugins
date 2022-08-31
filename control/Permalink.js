@@ -2,11 +2,12 @@ L.Control.Permalink = L.Control.extend({
 	includes: L.Evented ? L.Evented.prototype : L.Mixin.Events,
 
 	options: {
-		position: 'bottomleft',
+		position: 'topleft',
 		useAnchor: false,
 		useLocation: false,
 		useLocalStorage: false,
-		text: 'Permalink',
+		text: 'Share',
+		displayIcon: true,
 		supportAngularHashRouting: false,
 	},
 
@@ -22,13 +23,14 @@ L.Control.Permalink = L.Control.extend({
 	},
 
 	onAdd: function (map) {
-		this._container = L.DomUtil.create('div', 'leaflet-control-attribution leaflet-control-permalink');
+		this._container = L.DomUtil.create('div', 'leaflet-control-permalink');
 		L.DomEvent.disableClickPropagation(this._container);
 		this._map = map;
 
 		// create anchor element pointing to this._href
 		this._href = L.DomUtil.create('a', null, this._container);
-		this._href.innerHTML = this.options.text;
+		this._href.innerHTML = this.options.displayIcon ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <g> <path fill="none" d="M0 0h24v24H0z"/> <path d="M13 14h-2a8.999 8.999 0 0 0-7.968 4.81A10.136 10.136 0 0 1 3 18C3 12.477 7.477 8 13 8V3l10 8-10 8v-5z"/> </g> </svg>`: this.options.text;
+		this._href.title = this.options.text;
 
 
 		// Allow user to copy link here
