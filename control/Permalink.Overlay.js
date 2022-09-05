@@ -10,11 +10,28 @@
  * Plugin Options:
  * 1. overlays: flattened overlays
  */
- L.Control.Permalink.include({
+L.Control.Permalink.include({
 
 	initialize_overlay: function () {
 		this.on('update', this._set_overlays, this);
 		this.on('add', this._onadd_overlay, this);
+
+		this.layerIds = [...this.options.overlays.map(overlay => overlay.id)];
+
+		this.layerIdsGen = this.layerIds.reduce(
+			(obj, id) => {
+				obj[id] = this.uniqueId(id);
+				return obj
+			},
+			{});
+			
+		this.hashedLayerIds = Object.keys(this.layerIdsGen).reduce(
+			(obj, id) => {
+				obj[id] = this.shortestUniqueStr(this.layerIdsGen[id], Object.values(this.layerIdsGen));
+				return obj
+			},
+			{}
+		)
 	},
 
 	// Sets eventhandlers for layer toggles
@@ -33,15 +50,16 @@
 		if (!this._map._layers) return;
 		let currentOverlays = this.currentOverlays();
 		let changedOverlays = (
-			e 
-			&& (e.type === 'layeradd' || e.type === 'layerremove') 
-			&& e.layer.hasOwnProperty('baselayer') 
+			e
+			&& (e.type === 'layeradd' || e.type === 'layerremove')
+			&& e.layer.hasOwnProperty('baselayer')
 			&& e.layer.hasOwnProperty('id')
-			) ? 
-				{[e.layer.id]: (e.type === 'layeradd')} 
-				: {};
+		) ?
+			{ [this.hashedLayerIds[e.layer.id]]: (e.type === 'layeradd') }
+			: {};
+
 		if (currentOverlays) {
-			this._update(this.minifyBooleanFlags({...currentOverlays, ...changedOverlays}));
+			this._update(this.minifyBooleanFlags({ ...currentOverlays, ...changedOverlays }));
 		}
 	},
 
@@ -56,6 +74,47 @@
 		this.setOverlays(p);
 	},
 
+	// Returns the hashcode of a string (similar to Java's impl.)
+	hashCode(str) {
+		let hash = str.split('').reduce((s, c) => Math.imul(31, s) + c.charCodeAt(0) | 0, 0);
+		return (hash < 0) ? ((hash * -1) + 0xFFFFFFFF) : hash; // convert to unsigned
+	},
+
+	// ensures minimum length
+	lz(i, c) {
+		if (typeof c != 'number' || c <= 0 || (typeof i != 'number' && typeof i != 'string'))
+			return i;
+		i += '';
+		while (i.length < c) i = '0' + i
+		return i;
+	},
+
+	// Generates a unique sequence based on the hashcode and the lz algorithm.
+	// Uses base 32 and 16 (hexadecimal) - helps to shrink the length of the string
+	uniqueId(str) {
+		strHash = this.hashCode(str);
+		return strHash.toString(32) + this.lz((str.length * 4).toString(16), 3)
+	},
+
+	// Finds the shortest sequence of characters that'd allow to identify the string apart from the other strings
+	// Starts comparing from the two first characters, since one character would most likely be in another string
+	shortestUniqueStr(str, otherStrs) {
+		let done = false;
+		let shorterId = str[0];
+		let i = 1;
+
+		while (!done && i < str.length) {
+			done = true;
+			shorterId += str[i]
+
+			if (otherStrs.some(s => s !== str && s.includes(shorterId))) {
+				done = false
+			}
+
+			i++;
+		}
+		return shorterId.replace(/[^a-z\d]+/ig, '');
+	},
 
 	/**
 	 * Updates map overlays according to the parsed href overlay ids parameters
@@ -67,8 +126,8 @@
 		let activeLayers = this.options.getActiveLayers();
 
 		// returns undefined if layer was not found in URL, true if it was enabled in URL, otherwise false.
-		let showLayer = (layerId) => params[layerId] ? String(params[layerId])[0] == "t" : undefined // values of params[layerId] might be "undefined", "true", or "false"
-		
+		let showLayer = (layerId) => params[this.hashedLayerIds[layerId]] ? String(params[this.hashedLayerIds[layerId]])[0] == "t" : undefined // values of params[layerId] might be "undefined", "true", or "false"
+
 		// loop through active layers and disable ones that are disabled in the URL
 		for (let layer of activeLayers) {
 			if (showLayer(layer.id) !== undefined) {
@@ -95,7 +154,7 @@
 	},
 
 	// Adds layer to the map layers; assumes layer has no children
-	_addLayer: function(layer) {
+	_addLayer: function (layer) {
 		if (layer) {
 			if (layer.layer !== undefined) {
 				if (!this._map.hasLayer(layer.layer)) this._map.addLayer(layer.layer);
@@ -114,7 +173,7 @@
 		for (let layer of activeLayers) {
 			if (layer.baselayer) continue;
 			if (!layer.baselayer) {
-				overlays[layer.id] = this._map.hasLayer(layer);
+				overlays[this.hashedLayerIds[layer.id]] = this._map.hasLayer(layer);
 			}
 		}
 		return overlays;
