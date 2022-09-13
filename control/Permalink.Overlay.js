@@ -10,7 +10,7 @@
  * Plugin Options:
  * 1. overlays: flattened overlays
  */
-L.Control.Permalink.include({
+ L.Control.Permalink.include({
 
 	initialize_overlay: function () {
 		this.on('update', this._set_overlays, this);
@@ -49,17 +49,22 @@ L.Control.Permalink.include({
 	_update_overlay: function (e) {
 		if (!this._map._layers) return;
 		let currentOverlays = this.currentOverlays();
-		let changedOverlays = (
+		let changedOverlays = {};
+		// delete the non-hashed id if its hashed equivalent is present
+		let deleteNonHashedId;
+
+		if (
 			e
 			&& (e.type === 'layeradd' || e.type === 'layerremove')
 			&& e.layer.hasOwnProperty('baselayer')
 			&& e.layer.hasOwnProperty('id')
-		) ?
-			{ [this.hashedLayerIds[e.layer.id]]: (e.type === 'layeradd') }
-			: {};
+		) {
+			changedOverlays[this.hashedLayerIds[e.layer.id]] = (e.type === 'layeradd')
+			deleteNonHashedId = e.layer.id
+		}
 
 		if (currentOverlays) {
-			this._update(this.minifyBooleanFlags({ ...currentOverlays, ...changedOverlays }));
+			this._update(this.minifyBooleanFlags({ ...currentOverlays, ...changedOverlays }), deleteNonHashedId ? [deleteNonHashedId] : []);
 		}
 	},
 
@@ -126,7 +131,8 @@ L.Control.Permalink.include({
 		let activeLayers = this.options.getActiveLayers();
 
 		// returns undefined if layer was not found in URL, true if it was enabled in URL, otherwise false.
-		let showLayer = (layerId) => params[this.hashedLayerIds[layerId]] ? String(params[this.hashedLayerIds[layerId]])[0] == "t" : undefined // values of params[layerId] might be "undefined", "true", or "false"
+		// supports both hashed and non-hashed layer ids
+		let showLayer = (layerId) => params[this.hashedLayerIds[layerId]] ? String(params[this.hashedLayerIds[layerId]])[0] == "t" : params[layerId] ? String(params[layerId])[0] == "t" : undefined // values of params[layerId] might be "undefined", "true", or "false"
 
 		// loop through active layers and disable ones that are disabled in the URL
 		for (let layer of activeLayers) {

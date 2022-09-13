@@ -108,13 +108,17 @@ L.Control.Permalink = L.Control.extend({
 	},
 
 	// update this._params object and call this._update_href
-	_update: function (obj) {
+	_update: function (obj, deleteKeys = []) {
 		for (var i in obj) {
 			if (!obj.hasOwnProperty(i)) continue;
 			if (obj[i] !== null && obj[i] !== undefined)
 				this._params[i] = obj[i];
 			else
 				delete this._params[i];
+		}
+
+		for (let key of deleteKeys) {
+			delete this._params[key]
 		}
 
 		this._update_href();
